@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import streamlit as st
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func
@@ -80,6 +82,9 @@ tasks = (
 )
 sprints = db.query(Sprint).order_by(Sprint.id.asc()).all()
 users = db.query(User).order_by(User.username.asc()).all()
+uploads_root = Path("uploads")
+shared_uploads_dir = uploads_root / "shared-space"
+shared_uploads_dir.mkdir(parents=True, exist_ok=True)
 
 columns = ["To Do", "In Progress", "In Review", "Done"]
 status_meta = {
@@ -122,6 +127,24 @@ def persist_board_state(sorted_containers):
         db.commit()
         st.toast("Board updated", icon=":material/check_circle:")
         st.rerun()
+
+
+def save_uploaded_files(uploaded_files) -> int:
+    saved_count = 0
+    for uploaded_file in uploaded_files:
+        relative_name = Path(uploaded_file.name)
+        safe_parts = [part for part in relative_name.parts if part not in ("", ".", "..")]
+        if not safe_parts:
+            continue
+        target_path = shared_uploads_dir.joinpath(*safe_parts)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(uploaded_file.getbuffer())
+        saved_count += 1
+    return saved_count
+
+
+def list_uploaded_files():
+    return sorted([path for path in shared_uploads_dir.rglob("*") if path.is_file()], key=lambda p: str(p).lower())
 
 
 total_tasks = len(tasks)
@@ -330,3 +353,82 @@ else:
             """,
             unsafe_allow_html=True,
         )
+
+uploaded_files = list_uploaded_files()
+
+st.markdown(
+    """
+    <div class="pf-panel" style="margin-top:1rem;">
+        <div class="pf-panel-inner">
+            <h3 class="pf-panel-title">Shared files</h3>
+            <p class="pf-panel-subtitle">Upload single files or a whole folder. Folder structure is preserved when the browser provides relative paths.</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+upload_col, info_col = st.columns([1.5, 1], gap="medium")
+
+with upload_col:
+    picked_files = st.file_uploader(
+        "Upload files or folders",
+        accept_multiple_files="directory",
+        key="shared_uploads",
+        help="Choose individual files or select a folder to upload everything inside it.",
+    )
+    if st.button("Save uploaded files", use_container_width=True, key="save_shared_uploads"):
+        if not picked_files:
+            st.warning("Choose at least one file or folder first.")
+        else:
+            saved_count = save_uploaded_files(picked_files)
+            st.success(f"Saved {saved_count} file(s) to the shared workspace.")
+            st.rerun()
+
+with info_col:
+    st.markdown(
+        f"""
+        <div class="pf-panel" style="height:100%;">
+            <div class="pf-panel-inner">
+                <h3 class="pf-panel-title">Storage snapshot</h3>
+                <p class="pf-panel-subtitle">{len(uploaded_files)} file(s) currently available in the shared workspace.</p>
+                <div class="pf-chip-row" style="margin-top:1rem;">
+                    <span class="pf-chip">Directory upload enabled</span>
+                    <span class="pf-chip">Download from browser</span>
+                    <span class="pf-chip">Shared path: uploads/shared-space</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+if not uploaded_files:
+    st.markdown('<div class="pf-empty">No shared files yet. Upload a file or folder to populate this area.</div>', unsafe_allow_html=True)
+else:
+    for file_path in uploaded_files:
+        relative_path = file_path.relative_to(shared_uploads_dir).as_posix()
+        file_bytes = file_path.read_bytes()
+        file_col, download_col = st.columns([2.2, 0.8], gap="medium")
+        with file_col:
+            st.markdown(
+                f"""
+                <div class="pf-list-row">
+                    <div>
+                        <span class="pf-list-title">{file_path.name}</span>
+                        <div class="pf-list-meta">{relative_path}</div>
+                    </div>
+                    <div style="color:rgba(248,242,232,0.62);">{len(file_bytes):,} bytes</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with download_col:
+            st.download_button(
+                "Download",
+                data=file_bytes,
+                file_name=file_path.name,
+                mime="application/octet-stream",
+                key=f"download_{relative_path}",
+                use_container_width=True,
+            )
