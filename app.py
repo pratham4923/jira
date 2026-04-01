@@ -7,11 +7,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-with open("public/css/style.css", "r", encoding="utf-8") as f:
-    css = f.read()
-
-st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
 st.markdown(
     """
     <style>

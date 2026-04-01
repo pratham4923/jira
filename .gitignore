@@ -1,9 +1,0 @@
-.venv/
-.venv312/
-__pycache__/
-*.pyc
-.env
-site.db
-site.db-shm
-site.db-wal
-.streamlit/
