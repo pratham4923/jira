@@ -3,6 +3,16 @@ import streamlit as st
 
 from database import User, get_db
 
+for session_key, default_value in {
+    "login_username": "",
+    "login_password": "",
+    "signup_username": "",
+    "signup_password": "",
+    "signup_role": "Admin",
+}.items():
+    if session_key not in st.session_state:
+        st.session_state[session_key] = default_value
+
 st.markdown(
     """
     <style>
@@ -233,8 +243,8 @@ with outer_right:
 
     with tab1:
         with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
+            username = st.text_input("Username", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
             submit = st.form_submit_button("Log in", use_container_width=True)
 
             if submit:
@@ -253,8 +263,8 @@ with outer_right:
 
     with tab2:
         with st.form("signup_form", clear_on_submit=True):
-            new_username = st.text_input("Choose username")
-            new_password = st.text_input("Create password", type="password")
+            new_username = st.text_input("Choose username", key="signup_username")
+            new_password = st.text_input("Create password", type="password", key="signup_password")
             role = st.selectbox(
                 "Role",
                 [
@@ -265,6 +275,7 @@ with outer_right:
                     "Testing",
                     "Deployment",
                 ],
+                key="signup_role",
             )
             signup_submit = st.form_submit_button("Create account", use_container_width=True)
 
