@@ -229,8 +229,6 @@ with outer_right:
         unsafe_allow_html=True,
     )
 
-    st.link_button("Deploy on Streamlit", "https://share.streamlit.io/deploy", use_container_width=True)
-
     tab1, tab2 = st.tabs(["Log In", "Create Account"])
 
     with tab1:
